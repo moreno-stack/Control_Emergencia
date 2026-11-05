@@ -504,3 +504,14 @@ test("aplica CORS solo a los orígenes permitidos", async () => {
     await new Promise((resolve) => corsServer.close(resolve));
   }
 });
+
+test("rechaza cuerpos con JSON inválido", async () => {
+  const response = await fetch(`${baseUrl}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{\"name\":",
+  });
+  const data = await response.json();
+  assert.equal(response.status, 400);
+  assert.equal(data.error.code, "INVALID_JSON");
+});
