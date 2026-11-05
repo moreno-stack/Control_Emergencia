@@ -29,9 +29,11 @@ function loadStore(file) {
     if (!Array.isArray(store.users) || !Array.isArray(store.incidents)) {
       throw new Error("El archivo de datos debe contener listas de usuarios y reportes.");
     }
+    store.history ??= [];
+    store.comments ??= [];
     return store;
   } catch (error) {
-    if (error.code === "ENOENT") return { users: [], incidents: [] };
+    if (error.code === "ENOENT") return { users: [], incidents: [], history: [], comments: [] };
     throw error;
   }
 }
@@ -119,6 +121,20 @@ function validateIncident(body, partial = false, operator = false) {
 function sanitizeIncident(incident) {
   const { createdBy, ...publicIncident } = incident;
   return publicIncident;
+}
+
+function addHistoryEntry(store, incident, user, action, changedFields = [], details = {}) {
+  store.history.push({
+    id: randomUUID(),
+    incidentId: incident.id,
+    action,
+    actorId: user.id,
+    actorName: user.name,
+    actorRole: user.role,
+    changedFields,
+    details,
+    createdAt: new Date().toISOString(),
+  });
 }
 
 export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emergency.json", corsOrigins = [] } = {}) {
@@ -262,6 +278,7 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
           updatedAt: new Date().toISOString(),
         };
         store.incidents.push(incident);
+        addHistoryEntry(store, incident, user, "created");
         saveStore(file, store);
         return send(res, 201, { incident: sanitizeIncident(incident) });
       }
@@ -286,6 +303,18 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
       }
 
       const incidentRoute = route.match(/^\/api\/incidents\/([^/]+)$/);
+      const historyRoute = route.match(/^\/api\/incidents\/([^/]+)\/history$/);
+      if (historyRoute && req.method === "GET") {
+        const incident = store.incidents.find((item) => item.id === historyRoute[1]);
+        if (!incident || (user.role === "citizen" && incident.createdBy !== user.id)) {
+          fail(404, "INCIDENT_NOT_FOUND", "No se encontró el reporte solicitado.");
+        }
+        const history = store.history
+          .filter((entry) => entry.incidentId === incident.id)
+          .sort((first, second) => first.createdAt.localeCompare(second.createdAt));
+        return send(res, 200, { history });
+      }
+
       if (incidentRoute && ["GET", "PATCH"].includes(req.method)) {
         const incident = store.incidents.find((item) => item.id === incidentRoute[1]);
         if (!incident || (user.role === "citizen" && incident.createdBy !== user.id)) {
@@ -300,10 +329,22 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
           const assignee = store.users.find((account) => account.id === body.assignedTo && ["operator", "admin"].includes(account.role));
           if (!assignee) fail(400, "INVALID_ASSIGNEE", "El responsable debe ser una cuenta operativa existente.");
         }
+        const changedFields = [];
+        const details = {};
         for (const [field, value] of Object.entries(body)) {
-          incident[field] = typeof value === "string" && field !== "status" && field !== "assignedTo" ? value.trim() : value;
+          const normalizedValue = typeof value === "string" && field !== "status" && field !== "assignedTo" ? value.trim() : value;
+          if (incident[field] !== normalizedValue) {
+            changedFields.push(field);
+            if (field === "status" || field === "priority" || field === "assignedTo") {
+              details[field] = { from: incident[field], to: normalizedValue };
+            }
+            incident[field] = normalizedValue;
+          }
         }
-        incident.updatedAt = new Date().toISOString();
+        if (changedFields.length > 0) {
+          incident.updatedAt = new Date().toISOString();
+          addHistoryEntry(store, incident, user, "updated", changedFields, details);
+        }
         saveStore(file, store);
         return send(res, 200, { incident: sanitizeIncident(incident) });
       }

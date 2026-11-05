@@ -27,8 +27,11 @@ La API estará en `http://localhost:3000`. Puedes cambiar el puerto y archivo de
 | GET | `/api/incidents` | Sesión | Listar reportes |
 | GET | `/api/incidents/:id` | Sesión | Consultar reporte |
 | PATCH | `/api/incidents/:id` | Sesión | Actualizar reporte |
+| GET | `/api/incidents/:id/history` | Sesión | Consultar el historial de cambios |
 
 El registro incluye título, categoría, descripción y dirección; la ubicación GPS y teléfono son opcionales. Los ciudadanos ven y editan únicamente sus reportes nuevos. Operadores y administradores pueden gestionar todos. Estados: `new`, `assigned`, `in_progress`, `resolved`, `cancelled`. Prioridades: `low`, `medium`, `high`, `critical`.
+
+El historial registra quién creó o modificó cada reporte y qué campos cambiaron. Los archivos de datos existentes se amplían automáticamente al guardar nuevos cambios.
 
 Envía el token devuelto al iniciar sesión con `Authorization: Bearer <token>`. Los tokens duran 8 horas y se invalidan al reiniciar el servidor.
 

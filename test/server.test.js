@@ -70,6 +70,11 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   assert.equal(created.data.incident.status, "new");
   assert.equal("createdBy" in created.data.incident, false);
 
+  const initialHistory = await request(`/api/incidents/${created.data.incident.id}/history`, { token: registration.data.token });
+  assert.equal(initialHistory.status, 200);
+  assert.equal(initialHistory.data.history.length, 1);
+  assert.equal(initialHistory.data.history[0].action, "created");
+
   const listed = await request("/api/incidents", { token: registration.data.token });
   assert.equal(listed.status, 200);
   assert.equal(listed.data.pagination.total, 1);
@@ -82,6 +87,9 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   });
   assert.equal(edit.status, 200);
   assert.equal(edit.data.incident.title, "Accidente grave");
+  const history = await request(`/api/incidents/${created.data.incident.id}/history`, { token: registration.data.token });
+  assert.equal(history.data.history.length, 2);
+  assert.deepEqual(history.data.history[1].changedFields, ["title"]);
 
   const invalid = await request("/api/incidents", {
     method: "POST",
@@ -102,6 +110,8 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   assert.equal(login.status, 200);
   const persisted = await request("/api/incidents", { token: login.data.token });
   assert.equal(persisted.data.pagination.total, 1);
+  const persistedHistory = await request(`/api/incidents/${created.data.incident.id}/history`, { token: login.data.token });
+  assert.equal(persistedHistory.data.history.length, 2);
 
   const logout = await request("/api/auth/logout", { method: "POST", token: login.data.token });
   assert.equal(logout.status, 200);
