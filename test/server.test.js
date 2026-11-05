@@ -451,3 +451,25 @@ test("pagina los reportes y rechaza límites fuera de rango", async () => {
   assert.equal(invalidLimit.status, 400);
   assert.equal(invalidLimit.data.error.code, "VALIDATION_ERROR");
 });
+
+test("normaliza comentarios y rechaza campos adicionales", async () => {
+  const citizen = await registerCitizen();
+  const created = await createIncident(citizen);
+  const commentsPath = `/api/incidents/${created.data.incident.id}/comments`;
+
+  const comment = await request(commentsPath, {
+    method: "POST",
+    token: citizen,
+    body: { message: "  Comentario con espacios  " },
+  });
+  assert.equal(comment.status, 201);
+  assert.equal(comment.data.comment.message, "Comentario con espacios");
+
+  const extraField = await request(commentsPath, {
+    method: "POST",
+    token: citizen,
+    body: { message: "Comentario válido", author: "alterado" },
+  });
+  assert.equal(extraField.status, 400);
+  assert.equal(extraField.data.error.code, "VALIDATION_ERROR");
+});
