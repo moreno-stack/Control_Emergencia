@@ -415,3 +415,19 @@ test("valida los datos del registro y rechaza campos no permitidos", async () =>
   assert.equal(extraField.status, 400);
   assert.equal(extraField.data.error.code, "VALIDATION_ERROR");
 });
+
+test("valida coordenadas y actualizaciones parciales de reportes", async () => {
+  const citizen = await registerCitizen();
+  const invalidCoordinates = await createIncident(citizen, { latitude: 1.2 });
+  assert.equal(invalidCoordinates.status, 400);
+  assert.equal(invalidCoordinates.data.error.code, "VALIDATION_ERROR");
+
+  const created = await createIncident(citizen);
+  const emptyUpdate = await request(`/api/incidents/${created.data.incident.id}`, {
+    method: "PATCH",
+    token: citizen,
+    body: {},
+  });
+  assert.equal(emptyUpdate.status, 400);
+  assert.equal(emptyUpdate.data.error.code, "VALIDATION_ERROR");
+});
