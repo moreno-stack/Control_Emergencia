@@ -7,6 +7,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const categories = ["medical", "fire", "crime", "traffic", "natural_disaster", "other"];
 const priorities = ["low", "medium", "high", "critical"];
 const statuses = ["new", "assigned", "in_progress", "resolved", "cancelled"];
+const statusTransitions = {
+  new: ["assigned", "in_progress", "cancelled"],
+  assigned: ["new", "in_progress", "cancelled"],
+  in_progress: ["assigned", "resolved", "cancelled"],
+  resolved: [],
+  cancelled: [],
+};
 const sessions = new Map();
 const loginAttempts = new Map();
 
@@ -427,6 +434,16 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
         if (body.assignedTo) {
           const assignee = store.users.find((account) => account.id === body.assignedTo && ["operator", "admin"].includes(account.role));
           if (!assignee) fail(400, "INVALID_ASSIGNEE", "El responsable debe ser una cuenta operativa existente.");
+        }
+        if (!("status" in body) && "assignedTo" in body) {
+          if (body.assignedTo && incident.status === "new") body.status = "assigned";
+          if (body.assignedTo === null && incident.status === "assigned") body.status = "new";
+        }
+        if ("status" in body && body.status !== incident.status && !statusTransitions[incident.status].includes(body.status)) {
+          fail(409, "INVALID_STATUS_TRANSITION", `No se puede cambiar el estado de ${incident.status} a ${body.status}.`, {
+            from: incident.status,
+            allowed: statusTransitions[incident.status],
+          });
         }
         const changedFields = [];
         const details = {};

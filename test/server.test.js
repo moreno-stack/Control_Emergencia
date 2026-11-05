@@ -180,3 +180,61 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   assert.equal(logout.status, 200);
   assert.equal((await request("/api/auth/me", { token: login.data.token })).status, 401);
 });
+
+let userCounter = 0;
+
+async function loginAdmin() {
+  const login = await request("/api/auth/login", {
+    method: "POST",
+    body: { email: "admin@example.test", password: "admin-test-password-123" },
+  });
+  return login.data;
+}
+
+async function registerCitizen() {
+  userCounter += 1;
+  const registration = await request("/api/auth/register", {
+    method: "POST",
+    body: { name: `Ciudadano ${userCounter}`, email: `ciudadano${userCounter}@example.test`, password: "ciudadano-password-123" },
+  });
+  return registration.data.token;
+}
+
+async function createIncident(token, extra = {}) {
+  const created = await request("/api/incidents", {
+    method: "POST",
+    token,
+    body: {
+      title: "Incendio en vivienda",
+      category: "fire",
+      description: "Sale humo por las ventanas del segundo piso.",
+      address: "Calle 18 # 25-40, Pasto",
+      ...extra,
+    },
+  });
+  return created;
+}
+
+test("controla las transiciones de estado y asigna automáticamente", async () => {
+  const admin = await loginAdmin();
+  const citizen = await registerCitizen();
+  const { data } = await createIncident(citizen);
+  const path = `/api/incidents/${data.incident.id}`;
+
+  const assigned = await request(path, { method: "PATCH", token: admin.token, body: { assignedTo: admin.user.id } });
+  assert.equal(assigned.status, 200);
+  assert.equal(assigned.data.incident.status, "assigned");
+
+  const unassigned = await request(path, { method: "PATCH", token: admin.token, body: { assignedTo: null } });
+  assert.equal(unassigned.data.incident.status, "new");
+
+  const skipToResolved = await request(path, { method: "PATCH", token: admin.token, body: { status: "resolved" } });
+  assert.equal(skipToResolved.status, 409);
+  assert.equal(skipToResolved.data.error.code, "INVALID_STATUS_TRANSITION");
+
+  assert.equal((await request(path, { method: "PATCH", token: admin.token, body: { status: "in_progress" } })).status, 200);
+  assert.equal((await request(path, { method: "PATCH", token: admin.token, body: { status: "resolved" } })).status, 200);
+  const reopen = await request(path, { method: "PATCH", token: admin.token, body: { status: "new" } });
+  assert.equal(reopen.status, 409);
+  assert.deepEqual(reopen.data.error.details.allowed, []);
+});
