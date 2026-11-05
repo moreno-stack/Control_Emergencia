@@ -238,3 +238,24 @@ test("controla las transiciones de estado y asigna automáticamente", async () =
   assert.equal(reopen.status, 409);
   assert.deepEqual(reopen.data.error.details.allowed, []);
 });
+
+test("solo el personal operativo define la prioridad", async () => {
+  const admin = await loginAdmin();
+  const citizen = await registerCitizen();
+
+  const citizenCritical = await createIncident(citizen, { priority: "critical" });
+  assert.equal(citizenCritical.status, 400);
+
+  const { data } = await createIncident(citizen);
+  assert.equal(data.incident.priority, "medium");
+  const path = `/api/incidents/${data.incident.id}`;
+  assert.equal((await request(path, { method: "PATCH", token: citizen, body: { priority: "critical" } })).status, 400);
+
+  const raised = await request(path, { method: "PATCH", token: admin.token, body: { priority: "critical" } });
+  assert.equal(raised.status, 200);
+  assert.equal(raised.data.incident.priority, "critical");
+
+  const staffCreated = await createIncident(admin.token, { priority: "high" });
+  assert.equal(staffCreated.status, 201);
+  assert.equal(staffCreated.data.incident.priority, "high");
+});

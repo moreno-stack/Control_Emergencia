@@ -106,8 +106,9 @@ function validate(condition, message) {
 
 function validateIncident(body, partial = false, operator = false) {
   validate(body && typeof body === "object" && !Array.isArray(body), "Envía un objeto JSON.");
-  const allowed = ["title", "category", "description", "address", "latitude", "longitude", "contactPhone", "priority"];
-  if (operator) allowed.push("status", "assignedTo");
+  const allowed = ["title", "category", "description", "address", "latitude", "longitude", "contactPhone"];
+  if (operator) allowed.push("priority");
+  if (operator && partial) allowed.push("status", "assignedTo");
   const keys = Object.keys(body);
   validate(keys.every((key) => allowed.includes(key)), "El reporte contiene campos no permitidos.");
   if (partial) validate(keys.length > 0, "Debes enviar al menos un campo para actualizar.");
@@ -315,7 +316,7 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
       }
 
       if (req.method === "POST" && route === "/api/incidents") {
-        validateIncident(body);
+        validateIncident(body, false, ["operator", "admin"].includes(user.role));
         const incident = {
           id: randomUUID(),
           title: body.title.trim(),
