@@ -335,6 +335,8 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
         const page = Number(url.searchParams.get("page") ?? 1);
         const limit = Number(url.searchParams.get("limit") ?? 20);
         validate(Number.isInteger(page) && page >= 1 && Number.isInteger(limit) && limit >= 1 && limit <= 100, "La página o el límite no son válidos.");
+        const allowedFilters = ["page", "limit", "status", "priority", "category", "q", "from", "to"];
+        validate([...url.searchParams.keys()].every((key) => allowedFilters.includes(key)), "La búsqueda contiene filtros no reconocidos.");
         let incidents = store.incidents.filter((incident) => user.role !== "citizen" || incident.createdBy === user.id);
         for (const field of ["status", "priority", "category"]) {
           const value = url.searchParams.get(field);
@@ -344,6 +346,28 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
             incidents = incidents.filter((incident) => incident[field] === value);
           }
         }
+        const search = url.searchParams.get("q")?.trim().toLocaleLowerCase();
+        if (search) {
+          validate(search.length <= 100, "La búsqueda no puede superar 100 caracteres.");
+          incidents = incidents.filter((incident) =>
+            [incident.title, incident.description, incident.address]
+              .some((value) => value.toLocaleLowerCase().includes(search))
+          );
+        }
+        const from = url.searchParams.get("from");
+        const to = url.searchParams.get("to");
+        for (const date of [from, to]) {
+          if (date !== null) {
+            const parsedDate = new Date(`${date}T00:00:00.000Z`);
+            const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date)
+              && !Number.isNaN(parsedDate.getTime())
+              && parsedDate.toISOString().slice(0, 10) === date;
+            validate(validDate, "Las fechas deben tener el formato YYYY-MM-DD y ser válidas.");
+          }
+        }
+        if (from && to) validate(from <= to, "La fecha inicial no puede ser posterior a la fecha final.");
+        if (from) incidents = incidents.filter((incident) => incident.createdAt.slice(0, 10) >= from);
+        if (to) incidents = incidents.filter((incident) => incident.createdAt.slice(0, 10) <= to);
         incidents.sort((first, second) => second.createdAt.localeCompare(first.createdAt));
         const total = incidents.length;
         const results = incidents.slice((page - 1) * limit, page * limit).map(sanitizeIncident);

@@ -132,6 +132,14 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   assert.equal(listed.status, 200);
   assert.equal(listed.data.pagination.total, 1);
   assert.equal(listed.data.incidents[0].id, created.data.incident.id);
+  const today = new Date().toISOString().slice(0, 10);
+  const searched = await request(`/api/incidents?q=intersecci%C3%B3n&category=traffic&from=${today}&to=${today}`, {
+    token: registration.data.token,
+  });
+  assert.equal(searched.status, 200);
+  assert.equal(searched.data.pagination.total, 1);
+  assert.equal((await request("/api/incidents?from=2026-02-31", { token: registration.data.token })).status, 400);
+  assert.equal((await request("/api/incidents?to=9999-99-99", { token: registration.data.token })).status, 400);
 
   const edit = await request(`/api/incidents/${created.data.incident.id}`, {
     method: "PATCH",

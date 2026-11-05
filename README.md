@@ -33,7 +33,7 @@ La API estará en `http://localhost:3000`. Puedes cambiar el puerto y archivo de
 | GET | `/api/incidents/:id/comments` | Sesión | Ver comentarios del reporte |
 | POST | `/api/incidents/:id/comments` | Sesión | Agregar comentario al reporte |
 
-El registro incluye título, categoría, descripción y dirección; la ubicación GPS y teléfono son opcionales. Los ciudadanos ven y editan únicamente sus reportes nuevos. Operadores y administradores pueden gestionar todos. Estados: `new`, `assigned`, `in_progress`, `resolved`, `cancelled`. Prioridades: `low`, `medium`, `high`, `critical`.
+El registro incluye título, categoría, descripción y dirección; la ubicación GPS y teléfono son opcionales. La lista de reportes admite filtros `status`, `priority`, `category`, búsqueda de texto `q`, fechas `from`/`to` (`YYYY-MM-DD`), y paginación con `page`/`limit`. Los ciudadanos ven y editan únicamente sus reportes nuevos. Operadores y administradores pueden gestionar todos. Estados: `new`, `assigned`, `in_progress`, `resolved`, `cancelled`. Prioridades: `low`, `medium`, `high`, `critical`.
 
 El historial registra quién creó o modificó cada reporte y qué campos cambiaron. Los archivos de datos existentes se amplían automáticamente al guardar nuevos cambios.
 
