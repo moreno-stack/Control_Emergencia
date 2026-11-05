@@ -13,7 +13,19 @@ let dataFile;
 before(async () => {
   directory = await mkdtemp(join(tmpdir(), "control-emergencia-"));
   dataFile = join(directory, "data.json");
+  const previousAdminEmail = process.env.ADMIN_EMAIL;
+  const previousAdminPassword = process.env.ADMIN_PASSWORD;
+  const previousAdminName = process.env.ADMIN_NAME;
+  process.env.ADMIN_EMAIL = "admin@example.test";
+  process.env.ADMIN_PASSWORD = "admin-test-password-123";
+  process.env.ADMIN_NAME = "Admin Test";
   server = createServer({ dataFile });
+  if (previousAdminEmail === undefined) delete process.env.ADMIN_EMAIL;
+  else process.env.ADMIN_EMAIL = previousAdminEmail;
+  if (previousAdminPassword === undefined) delete process.env.ADMIN_PASSWORD;
+  else process.env.ADMIN_PASSWORD = previousAdminPassword;
+  if (previousAdminName === undefined) delete process.env.ADMIN_NAME;
+  else process.env.ADMIN_NAME = previousAdminName;
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
@@ -69,6 +81,19 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   assert.equal(created.status, 201);
   assert.equal(created.data.incident.status, "new");
   assert.equal("createdBy" in created.data.incident, false);
+
+  const adminLogin = await request("/api/auth/login", {
+    method: "POST",
+    body: { email: "admin@example.test", password: "admin-test-password-123" },
+  });
+  assert.equal(adminLogin.status, 200);
+  const citizenDashboard = await request("/api/dashboard/summary", { token: registration.data.token });
+  assert.equal(citizenDashboard.status, 403);
+  const dashboard = await request("/api/dashboard/summary", { token: adminLogin.data.token });
+  assert.equal(dashboard.status, 200);
+  assert.equal(dashboard.data.summary.total, 1);
+  assert.equal(dashboard.data.summary.open, 1);
+  assert.equal(dashboard.data.summary.byPriority.medium, 1);
 
   const initialHistory = await request(`/api/incidents/${created.data.incident.id}/history`, { token: registration.data.token });
   assert.equal(initialHistory.status, 200);

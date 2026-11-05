@@ -234,6 +234,37 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
         return send(res, 200, { user: publicUser(user) });
       }
 
+      if (req.method === "GET" && route === "/api/dashboard/summary") {
+        if (!["operator", "admin"].includes(user.role)) {
+          fail(403, "FORBIDDEN", "El resumen está disponible solo para el personal operativo.");
+        }
+        const byStatus = Object.fromEntries(statuses.map((status) => [status, 0]));
+        const byPriority = Object.fromEntries(priorities.map((priority) => [priority, 0]));
+        const today = new Date().toISOString().slice(0, 10);
+        let open = 0;
+        let createdToday = 0;
+        let assignedToMe = 0;
+
+        for (const incident of store.incidents) {
+          byStatus[incident.status] += 1;
+          byPriority[incident.priority] += 1;
+          if (["new", "assigned", "in_progress"].includes(incident.status)) open += 1;
+          if (incident.createdAt.slice(0, 10) === today) createdToday += 1;
+          if (incident.assignedTo === user.id) assignedToMe += 1;
+        }
+
+        return send(res, 200, {
+          summary: {
+            total: store.incidents.length,
+            open,
+            createdToday,
+            assignedToMe,
+            byStatus,
+            byPriority,
+          },
+        });
+      }
+
       if (req.method === "POST" && route === "/api/auth/logout") {
         sessions.delete(token);
         return send(res, 200, { message: "Sesión cerrada correctamente." });
