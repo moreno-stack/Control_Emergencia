@@ -259,3 +259,24 @@ test("solo el personal operativo define la prioridad", async () => {
   assert.equal(staffCreated.status, 201);
   assert.equal(staffCreated.data.incident.priority, "high");
 });
+
+test("el ciudadano puede cancelar su reporte mientras está nuevo", async () => {
+  const admin = await loginAdmin();
+  const citizen = await registerCitizen();
+
+  const first = await createIncident(citizen);
+  const firstPath = `/api/incidents/${first.data.incident.id}`;
+  assert.equal((await request(firstPath, { method: "PATCH", token: citizen, body: { status: "resolved" } })).status, 400);
+  const cancelled = await request(firstPath, { method: "PATCH", token: citizen, body: { status: "cancelled" } });
+  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.data.incident.status, "cancelled");
+  const history = await request(`${firstPath}/history`, { token: citizen });
+  assert.deepEqual(history.data.history.at(-1).details.status, { from: "new", to: "cancelled" });
+
+  const second = await createIncident(citizen);
+  const secondPath = `/api/incidents/${second.data.incident.id}`;
+  await request(secondPath, { method: "PATCH", token: admin.token, body: { assignedTo: admin.user.id } });
+  const locked = await request(secondPath, { method: "PATCH", token: citizen, body: { status: "cancelled" } });
+  assert.equal(locked.status, 409);
+  assert.equal(locked.data.error.code, "INCIDENT_LOCKED");
+});

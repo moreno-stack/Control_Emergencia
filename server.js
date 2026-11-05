@@ -109,6 +109,7 @@ function validateIncident(body, partial = false, operator = false) {
   const allowed = ["title", "category", "description", "address", "latitude", "longitude", "contactPhone"];
   if (operator) allowed.push("priority");
   if (operator && partial) allowed.push("status", "assignedTo");
+  if (!operator && partial) allowed.push("status");
   const keys = Object.keys(body);
   validate(keys.every((key) => allowed.includes(key)), "El reporte contiene campos no permitidos.");
   if (partial) validate(keys.length > 0, "Debes enviar al menos un campo para actualizar.");
@@ -123,6 +124,7 @@ function validateIncident(body, partial = false, operator = false) {
   if ("contactPhone" in body) validate(typeof body.contactPhone === "string" && body.contactPhone.trim().length >= 7 && body.contactPhone.trim().length <= 25, "El teléfono de contacto no es válido.");
   if ("priority" in body) validate(priorities.includes(body.priority), "La prioridad no es válida.");
   if ("status" in body) validate(statuses.includes(body.status), "El estado no es válido.");
+  if ("status" in body && !operator) validate(body.status === "cancelled", "Como ciudadano solo puedes cancelar tu reporte.");
   if ("assignedTo" in body) validate(body.assignedTo === null || typeof body.assignedTo === "string", "El responsable no es válido.");
 }
 
