@@ -473,3 +473,34 @@ test("normaliza comentarios y rechaza campos adicionales", async () => {
   assert.equal(extraField.status, 400);
   assert.equal(extraField.data.error.code, "VALIDATION_ERROR");
 });
+
+test("aplica CORS solo a los orígenes permitidos", async () => {
+  const corsServer = createServer({
+    dataFile: join(directory, "cors.json"),
+    corsOrigins: ["https://panel.example.test"],
+  });
+  await new Promise((resolve) => corsServer.listen(0, "127.0.0.1", resolve));
+  const corsUrl = `http://127.0.0.1:${corsServer.address().port}`;
+  try {
+    const allowed = await fetch(`${corsUrl}/api/health`, {
+      headers: { Origin: "https://panel.example.test" },
+    });
+    assert.equal(allowed.status, 200);
+    assert.equal(allowed.headers.get("access-control-allow-origin"), "https://panel.example.test");
+    assert.equal(allowed.headers.get("vary"), "Origin");
+
+    const preflight = await fetch(`${corsUrl}/api/incidents`, {
+      method: "OPTIONS",
+      headers: { Origin: "https://panel.example.test" },
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get("access-control-allow-methods"), "GET, POST, PATCH, OPTIONS");
+
+    const denied = await fetch(`${corsUrl}/api/health`, {
+      headers: { Origin: "https://untrusted.example.test" },
+    });
+    assert.equal(denied.headers.get("access-control-allow-origin"), null);
+  } finally {
+    await new Promise((resolve) => corsServer.close(resolve));
+  }
+});
