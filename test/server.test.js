@@ -431,3 +431,23 @@ test("valida coordenadas y actualizaciones parciales de reportes", async () => {
   assert.equal(emptyUpdate.status, 400);
   assert.equal(emptyUpdate.data.error.code, "VALIDATION_ERROR");
 });
+
+test("pagina los reportes y rechaza límites fuera de rango", async () => {
+  const citizen = await registerCitizen();
+  await createIncident(citizen, { title: "Primer reporte de prueba" });
+  await createIncident(citizen, { title: "Segundo reporte de prueba" });
+  await createIncident(citizen, { title: "Tercer reporte de prueba" });
+
+  const page = await request("/api/incidents?page=2&limit=2", { token: citizen });
+  assert.equal(page.status, 200);
+  assert.equal(page.data.pagination.page, 2);
+  assert.equal(page.data.pagination.limit, 2);
+  assert.equal(page.data.pagination.total, 3);
+  assert.equal(page.data.pagination.pages, 2);
+  assert.equal(page.data.incidents.length, 1);
+  assert.equal(page.data.incidents[0].title, "Primer reporte de prueba");
+
+  const invalidLimit = await request("/api/incidents?page=1&limit=101", { token: citizen });
+  assert.equal(invalidLimit.status, 400);
+  assert.equal(invalidLimit.data.error.code, "VALIDATION_ERROR");
+});
