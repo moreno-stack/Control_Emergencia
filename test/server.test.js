@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "../server.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -132,7 +132,7 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   assert.equal(listed.status, 200);
   assert.equal(listed.data.pagination.total, 1);
   assert.equal(listed.data.incidents[0].id, created.data.incident.id);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
   const searched = await request(`/api/incidents?q=intersecci%C3%B3n&category=traffic&from=${today}&to=${today}`, {
     token: registration.data.token,
   });
@@ -302,4 +302,50 @@ test("busca reportes cercanos a una ubicación ordenados por distancia", async (
   assert.equal((await request("/api/incidents?near=abc", { token: admin.token })).status, 400);
   assert.equal((await request("/api/incidents?near=1.2,-77.2&radius=500", { token: admin.token })).status, 400);
   assert.equal((await request("/api/incidents?radius=3", { token: admin.token })).status, 400);
+});
+
+test("filtra por fecha usando la zona horaria de Colombia", async () => {
+  const seededFile = join(directory, "timezone.json");
+  // 02:00 UTC del 10 de marzo equivale a las 9:00 p. m. del 9 de marzo en Bogotá.
+  await writeFile(seededFile, JSON.stringify({
+    users: [],
+    incidents: [{
+      id: "incidente-nocturno",
+      title: "Reporte nocturno",
+      category: "other",
+      description: "Reporte creado en la noche en Colombia.",
+      address: "Calle 18 # 25-40, Pasto",
+      latitude: null,
+      longitude: null,
+      contactPhone: null,
+      priority: "medium",
+      status: "new",
+      createdBy: "nadie",
+      assignedTo: null,
+      createdAt: "2026-03-10T02:00:00.000Z",
+      updatedAt: "2026-03-10T02:00:00.000Z",
+    }],
+  }));
+  process.env.ADMIN_EMAIL = "zona@example.test";
+  process.env.ADMIN_PASSWORD = "zona-horaria-password-123";
+  const localServer = createServer({ dataFile: seededFile });
+  delete process.env.ADMIN_EMAIL;
+  delete process.env.ADMIN_PASSWORD;
+  await new Promise((resolve) => localServer.listen(0, "127.0.0.1", resolve));
+  const localUrl = `http://127.0.0.1:${localServer.address().port}`;
+  try {
+    const login = await (await fetch(`${localUrl}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "zona@example.test", password: "zona-horaria-password-123" }),
+    })).json();
+    const search = async (date) => (await (await fetch(`${localUrl}/api/incidents?from=${date}&to=${date}`, {
+      headers: { Authorization: `Bearer ${login.token}` },
+    })).json()).pagination.total;
+    assert.equal(await search("2026-03-09"), 1);
+    assert.equal(await search("2026-03-10"), 0);
+  } finally {
+    await new Promise((resolve) => localServer.close(resolve));
+  }
+  assert.throws(() => createServer({ dataFile: seededFile, timeZone: "Marte/Olympus" }), /zona horaria/);
 });

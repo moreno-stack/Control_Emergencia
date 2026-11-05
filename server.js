@@ -137,6 +137,16 @@ function distanceKm(fromLatitude, fromLongitude, toLatitude, toLongitude) {
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function createLocalDateFormatter(timeZone) {
+  let formatter;
+  try {
+    formatter = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+  } catch {
+    throw new Error(`La zona horaria ${timeZone} no es válida.`);
+  }
+  return (date) => formatter.format(new Date(date));
+}
+
 function sanitizeIncident(incident) {
   const { createdBy, ...publicIncident } = incident;
   return publicIncident;
@@ -156,8 +166,13 @@ function addHistoryEntry(store, incident, user, action, changedFields = [], deta
   });
 }
 
-export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emergency.json", corsOrigins = [] } = {}) {
+export function createServer({
+  dataFile = process.env.DATA_FILE ?? "./data/emergency.json",
+  corsOrigins = [],
+  timeZone = process.env.TIMEZONE || "America/Bogota",
+} = {}) {
   const file = resolve(dataFile);
+  const localDate = createLocalDateFormatter(timeZone);
   const store = loadStore(file);
   const allowedOrigins = new Set(corsOrigins);
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -259,7 +274,7 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
         }
         const byStatus = Object.fromEntries(statuses.map((status) => [status, 0]));
         const byPriority = Object.fromEntries(priorities.map((priority) => [priority, 0]));
-        const today = new Date().toISOString().slice(0, 10);
+        const today = localDate(new Date());
         let open = 0;
         let createdToday = 0;
         let assignedToMe = 0;
@@ -268,7 +283,7 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
           byStatus[incident.status] += 1;
           byPriority[incident.priority] += 1;
           if (["new", "assigned", "in_progress"].includes(incident.status)) open += 1;
-          if (incident.createdAt.slice(0, 10) === today) createdToday += 1;
+          if (localDate(incident.createdAt) === today) createdToday += 1;
           if (incident.assignedTo === user.id) assignedToMe += 1;
         }
 
@@ -385,8 +400,8 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
           }
         }
         if (from && to) validate(from <= to, "La fecha inicial no puede ser posterior a la fecha final.");
-        if (from) incidents = incidents.filter((incident) => incident.createdAt.slice(0, 10) >= from);
-        if (to) incidents = incidents.filter((incident) => incident.createdAt.slice(0, 10) <= to);
+        if (from) incidents = incidents.filter((incident) => localDate(incident.createdAt) >= from);
+        if (to) incidents = incidents.filter((incident) => localDate(incident.createdAt) <= to);
         const near = url.searchParams.get("near");
         const radiusParam = url.searchParams.get("radius");
         validate(radiusParam === null || near !== null, "El filtro radius requiere el filtro near.");
