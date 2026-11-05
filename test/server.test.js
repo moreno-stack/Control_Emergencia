@@ -102,4 +102,8 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   assert.equal(login.status, 200);
   const persisted = await request("/api/incidents", { token: login.data.token });
   assert.equal(persisted.data.pagination.total, 1);
+
+  const logout = await request("/api/auth/logout", { method: "POST", token: login.data.token });
+  assert.equal(logout.status, 200);
+  assert.equal((await request("/api/auth/me", { token: login.data.token })).status, 401);
 });

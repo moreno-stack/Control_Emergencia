@@ -21,6 +21,7 @@ La API estará en `http://localhost:3000`. Puedes cambiar el puerto y archivo de
 | POST | `/api/auth/register` | Público | Registrar ciudadano |
 | POST | `/api/auth/login` | Público | Iniciar sesión |
 | GET | `/api/auth/me` | Sesión | Ver la cuenta actual |
+| POST | `/api/auth/logout` | Sesión | Cerrar la sesión actual |
 | POST | `/api/users` | Administrador | Crear operador |
 | POST | `/api/incidents` | Sesión | Crear reporte |
 | GET | `/api/incidents` | Sesión | Listar reportes |

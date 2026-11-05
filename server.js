@@ -218,6 +218,11 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
         return send(res, 200, { user: publicUser(user) });
       }
 
+      if (req.method === "POST" && route === "/api/auth/logout") {
+        sessions.delete(token);
+        return send(res, 200, { message: "Sesión cerrada correctamente." });
+      }
+
       if (req.method === "POST" && route === "/api/users") {
         if (user.role !== "admin") fail(403, "FORBIDDEN", "Solo un administrador puede crear usuarios operativos.");
         validate(body && typeof body.name === "string" && body.name.trim().length >= 2 && body.name.trim().length <= 100, "El nombre debe tener entre 2 y 100 caracteres.");
