@@ -15,7 +15,8 @@ const statusTransitions = {
   cancelled: [],
 };
 const sessions = new Map();
-const loginAttempts = new Map();
+const maxFailedLogins = 10;
+const failedLoginWindowMs = 15 * 60 * 1000;
 
 function loadEnv() {
   try {
@@ -173,6 +174,7 @@ export function createServer({
 } = {}) {
   const file = resolve(dataFile);
   const localDate = createLocalDateFormatter(timeZone);
+  const failedLogins = new Map();
   const store = loadStore(file);
   const allowedOrigins = new Set(corsOrigins);
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -240,16 +242,16 @@ export function createServer({
 
       if (req.method === "POST" && route === "/api/auth/login") {
         const ip = req.socket.remoteAddress ?? "unknown";
-        const attempts = loginAttempts.get(ip) ?? [];
-        const recentAttempts = attempts.filter((time) => Date.now() - time < 15 * 60 * 1000);
-        if (recentAttempts.length >= 10) fail(429, "RATE_LIMITED", "Demasiados intentos. Inténtalo más tarde.");
-        recentAttempts.push(Date.now());
-        loginAttempts.set(ip, recentAttempts);
+        const recentFailures = (failedLogins.get(ip) ?? []).filter((time) => Date.now() - time < failedLoginWindowMs);
+        if (recentFailures.length >= maxFailedLogins) fail(429, "RATE_LIMITED", "Demasiados intentos fallidos. Inténtalo más tarde.");
         const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
         const user = store.users.find((account) => account.email === email);
         if (!user || typeof body.password !== "string" || !verifyPassword(body.password, user.passwordHash)) {
+          recentFailures.push(Date.now());
+          failedLogins.set(ip, recentFailures);
           fail(401, "INVALID_CREDENTIALS", "Correo o contraseña incorrectos.");
         }
+        failedLogins.delete(ip);
         const token = randomBytes(32).toString("base64url");
         sessions.set(token, { userId: user.id, expiresAt: Date.now() + 8 * 60 * 60 * 1000 });
         return send(res, 200, { user: publicUser(user), token });

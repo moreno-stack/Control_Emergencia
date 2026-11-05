@@ -349,3 +349,28 @@ test("filtra por fecha usando la zona horaria de Colombia", async () => {
   }
   assert.throws(() => createServer({ dataFile: seededFile, timeZone: "Marte/Olympus" }), /zona horaria/);
 });
+
+test("el límite de login solo cuenta intentos fallidos y se reinicia al entrar", async () => {
+  const limitFile = join(directory, "login-limit.json");
+  process.env.ADMIN_EMAIL = "limite@example.test";
+  process.env.ADMIN_PASSWORD = "limite-login-password-123";
+  const limitServer = createServer({ dataFile: limitFile });
+  delete process.env.ADMIN_EMAIL;
+  delete process.env.ADMIN_PASSWORD;
+  await new Promise((resolve) => limitServer.listen(0, "127.0.0.1", resolve));
+  const limitUrl = `http://127.0.0.1:${limitServer.address().port}`;
+  const login = async (password) => (await fetch(`${limitUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "limite@example.test", password }),
+  })).status;
+  try {
+    for (let attempt = 0; attempt < 12; attempt += 1) assert.equal(await login("limite-login-password-123"), 200);
+    for (let attempt = 0; attempt < 9; attempt += 1) assert.equal(await login("contraseña-incorrecta"), 401);
+    assert.equal(await login("limite-login-password-123"), 200);
+    for (let attempt = 0; attempt < 10; attempt += 1) assert.equal(await login("contraseña-incorrecta"), 401);
+    assert.equal(await login("limite-login-password-123"), 429);
+  } finally {
+    await new Promise((resolve) => limitServer.close(resolve));
+  }
+});
