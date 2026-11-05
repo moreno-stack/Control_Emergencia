@@ -515,3 +515,17 @@ test("rechaza cuerpos con JSON inválido", async () => {
   assert.equal(response.status, 400);
   assert.equal(data.error.code, "INVALID_JSON");
 });
+
+test("devuelve errores consistentes para credenciales inválidas y tokens ausentes", async () => {
+  const login = await request("/api/auth/login", {
+    method: "POST",
+    body: { email: "no-existe@example.test", password: "contraseña-inválida-123" },
+  });
+  assert.equal(login.status, 401);
+  assert.equal(login.data.error.code, "INVALID_CREDENTIALS");
+  assert.equal(login.data.error.message, "Correo o contraseña incorrectos.");
+
+  const protectedRequest = await request("/api/auth/me");
+  assert.equal(protectedRequest.status, 401);
+  assert.equal(protectedRequest.data.error.code, "AUTH_REQUIRED");
+});
