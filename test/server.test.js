@@ -94,6 +94,24 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   assert.equal(dashboard.data.summary.total, 1);
   assert.equal(dashboard.data.summary.open, 1);
   assert.equal(dashboard.data.summary.byPriority.medium, 1);
+  const forbiddenUsers = await request("/api/users", { token: registration.data.token });
+  assert.equal(forbiddenUsers.status, 403);
+  const operatorCreated = await request("/api/users", {
+    method: "POST",
+    token: adminLogin.data.token,
+    body: {
+      name: "Operador Uno",
+      email: "operator@example.test",
+      password: "operator-test-password-123",
+      role: "operator",
+    },
+  });
+  assert.equal(operatorCreated.status, 201);
+  const operators = await request("/api/users", { token: adminLogin.data.token });
+  assert.equal(operators.status, 200);
+  assert.equal(operators.data.users.length, 2);
+  assert.equal(operators.data.users.some((user) => "passwordHash" in user), false);
+  assert.equal(operators.data.users.find((user) => user.role === "operator").activeIncidentCount, 0);
 
   const initialHistory = await request(`/api/incidents/${created.data.incident.id}/history`, { token: registration.data.token });
   assert.equal(initialHistory.status, 200);

@@ -24,6 +24,7 @@ La API estará en `http://localhost:3000`. Puedes cambiar el puerto y archivo de
 | POST | `/api/auth/logout` | Sesión | Cerrar la sesión actual |
 | GET | `/api/dashboard/summary` | Operador/administrador | Ver conteos de reportes |
 | POST | `/api/users` | Administrador | Crear operador |
+| GET | `/api/users` | Operador/administrador | Listar equipo y carga activa |
 | POST | `/api/incidents` | Sesión | Crear reporte |
 | GET | `/api/incidents` | Sesión | Listar reportes |
 | GET | `/api/incidents/:id` | Sesión | Consultar reporte |

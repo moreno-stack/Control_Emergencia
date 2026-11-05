@@ -290,6 +290,23 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
         return send(res, 201, { user: publicUser(operator) });
       }
 
+      if (req.method === "GET" && route === "/api/users") {
+        if (!["operator", "admin"].includes(user.role)) {
+          fail(403, "FORBIDDEN", "Solo el personal operativo puede consultar las cuentas operativas.");
+        }
+        const users = store.users
+          .filter((account) => ["operator", "admin"].includes(account.role))
+          .sort((first, second) => first.name.localeCompare(second.name))
+          .map((account) => ({
+            ...publicUser(account),
+            activeIncidentCount: store.incidents.filter((incident) =>
+              incident.assignedTo === account.id
+              && ["new", "assigned", "in_progress"].includes(incident.status)
+            ).length,
+          }));
+        return send(res, 200, { users });
+      }
+
       if (req.method === "POST" && route === "/api/incidents") {
         validateIncident(body);
         const incident = {
