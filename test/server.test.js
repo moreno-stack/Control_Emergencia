@@ -394,3 +394,24 @@ test("la limpieza periódica conserva las sesiones vigentes", async () => {
   assert.equal(result.removedSessions, 0);
   assert.equal((await request("/api/auth/me", { token: admin.token })).status, 200);
 });
+
+test("valida los datos del registro y rechaza campos no permitidos", async () => {
+  const shortPassword = await request("/api/auth/register", {
+    method: "POST",
+    body: { name: "Ana Ejemplo", email: "validacion@example.test", password: "corta" },
+  });
+  assert.equal(shortPassword.status, 400);
+  assert.equal(shortPassword.data.error.code, "VALIDATION_ERROR");
+
+  const extraField = await request("/api/auth/register", {
+    method: "POST",
+    body: {
+      name: "Ana Ejemplo",
+      email: "validacion@example.test",
+      password: "validacion-segura-123",
+      role: "admin",
+    },
+  });
+  assert.equal(extraField.status, 400);
+  assert.equal(extraField.data.error.code, "VALIDATION_ERROR");
+});
