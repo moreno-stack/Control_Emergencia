@@ -303,7 +303,34 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
       }
 
       const incidentRoute = route.match(/^\/api\/incidents\/([^/]+)$/);
+      const commentsRoute = route.match(/^\/api\/incidents\/([^/]+)\/comments$/);
       const historyRoute = route.match(/^\/api\/incidents\/([^/]+)\/history$/);
+      if (commentsRoute && ["GET", "POST"].includes(req.method)) {
+        const incident = store.incidents.find((item) => item.id === commentsRoute[1]);
+        if (!incident || (user.role === "citizen" && incident.createdBy !== user.id)) {
+          fail(404, "INCIDENT_NOT_FOUND", "No se encontró el reporte solicitado.");
+        }
+        if (req.method === "GET") {
+          const comments = store.comments
+            .filter((comment) => comment.incidentId === incident.id)
+            .sort((first, second) => first.createdAt.localeCompare(second.createdAt));
+          return send(res, 200, { comments });
+        }
+
+        validate(body && typeof body.message === "string" && body.message.trim().length >= 2 && body.message.trim().length <= 1000, "El comentario debe tener entre 2 y 1000 caracteres.");
+        validate(Object.keys(body).length === 1 && "message" in body, "El comentario solo admite el campo message.");
+        const comment = {
+          id: randomUUID(),
+          incidentId: incident.id,
+          author: { id: user.id, name: user.name, role: user.role },
+          message: body.message.trim(),
+          createdAt: new Date().toISOString(),
+        };
+        store.comments.push(comment);
+        saveStore(file, store);
+        return send(res, 201, { comment });
+      }
+
       if (historyRoute && req.method === "GET") {
         const incident = store.incidents.find((item) => item.id === historyRoute[1]);
         if (!incident || (user.role === "citizen" && incident.createdBy !== user.id)) {

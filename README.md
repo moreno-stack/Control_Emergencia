@@ -28,6 +28,8 @@ La API estará en `http://localhost:3000`. Puedes cambiar el puerto y archivo de
 | GET | `/api/incidents/:id` | Sesión | Consultar reporte |
 | PATCH | `/api/incidents/:id` | Sesión | Actualizar reporte |
 | GET | `/api/incidents/:id/history` | Sesión | Consultar el historial de cambios |
+| GET | `/api/incidents/:id/comments` | Sesión | Ver comentarios del reporte |
+| POST | `/api/incidents/:id/comments` | Sesión | Agregar comentario al reporte |
 
 El registro incluye título, categoría, descripción y dirección; la ubicación GPS y teléfono son opcionales. Los ciudadanos ven y editan únicamente sus reportes nuevos. Operadores y administradores pueden gestionar todos. Estados: `new`, `assigned`, `in_progress`, `resolved`, `cancelled`. Prioridades: `low`, `medium`, `high`, `critical`.
 

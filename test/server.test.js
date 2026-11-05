@@ -75,6 +75,16 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   assert.equal(initialHistory.data.history.length, 1);
   assert.equal(initialHistory.data.history[0].action, "created");
 
+  const comment = await request(`/api/incidents/${created.data.incident.id}/comments`, {
+    method: "POST",
+    token: registration.data.token,
+    body: { message: "La unidad puede acceder por la calle principal." },
+  });
+  assert.equal(comment.status, 201);
+  assert.equal(comment.data.comment.author.name, "Ana Ejemplo");
+  const comments = await request(`/api/incidents/${created.data.incident.id}/comments`, { token: registration.data.token });
+  assert.equal(comments.data.comments.length, 1);
+
   const listed = await request("/api/incidents", { token: registration.data.token });
   assert.equal(listed.status, 200);
   assert.equal(listed.data.pagination.total, 1);
@@ -112,6 +122,8 @@ test("registra ciudadanos, protege reportes y guarda los datos", async () => {
   assert.equal(persisted.data.pagination.total, 1);
   const persistedHistory = await request(`/api/incidents/${created.data.incident.id}/history`, { token: login.data.token });
   assert.equal(persistedHistory.data.history.length, 2);
+  const persistedComments = await request(`/api/incidents/${created.data.incident.id}/comments`, { token: login.data.token });
+  assert.equal(persistedComments.data.comments.length, 1);
 
   const logout = await request("/api/auth/logout", { method: "POST", token: login.data.token });
   assert.equal(logout.status, 200);
