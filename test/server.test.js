@@ -281,6 +281,19 @@ test("el ciudadano puede cancelar su reporte mientras está nuevo", async () => 
   assert.equal(locked.data.error.code, "INCIDENT_LOCKED");
 });
 
+test("cada ciudadano solo puede consultar sus propios reportes", async () => {
+  const admin = await loginAdmin();
+  const owner = await registerCitizen();
+  const otherCitizen = await registerCitizen();
+  const created = await createIncident(owner);
+  const incidentPath = `/api/incidents/${created.data.incident.id}`;
+
+  assert.equal((await request(incidentPath, { token: otherCitizen })).status, 404);
+  assert.equal((await request(`${incidentPath}/history`, { token: otherCitizen })).status, 404);
+  assert.equal((await request(`${incidentPath}/comments`, { token: otherCitizen })).status, 404);
+  assert.equal((await request(incidentPath, { token: admin.token })).status, 200);
+});
+
 test("busca reportes cercanos a una ubicación ordenados por distancia", async () => {
   const admin = await loginAdmin();
   const citizen = await registerCitizen();
