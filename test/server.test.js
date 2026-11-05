@@ -280,3 +280,26 @@ test("el ciudadano puede cancelar su reporte mientras está nuevo", async () => 
   assert.equal(locked.status, 409);
   assert.equal(locked.data.error.code, "INCIDENT_LOCKED");
 });
+
+test("busca reportes cercanos a una ubicación ordenados por distancia", async () => {
+  const admin = await loginAdmin();
+  const citizen = await registerCitizen();
+  // Puntos de referencia en Pasto: plaza de Nariño, Unicentro y el aeropuerto (Chachagüí).
+  const plaza = await createIncident(citizen, { title: "Caída en la plaza", latitude: 1.2142, longitude: -77.2811 });
+  const unicentro = await createIncident(citizen, { title: "Choque en Unicentro", latitude: 1.2163, longitude: -77.2884 });
+  const airport = await createIncident(citizen, { title: "Emergencia en el aeropuerto", latitude: 1.3962, longitude: -77.2915 });
+  await createIncident(citizen, { title: "Sin ubicación GPS" });
+
+  const nearby = await request("/api/incidents?near=1.2140,-77.2810&radius=3", { token: admin.token });
+  assert.equal(nearby.status, 200);
+  assert.deepEqual(nearby.data.incidents.map((incident) => incident.id), [plaza.data.incident.id, unicentro.data.incident.id]);
+  assert.ok(nearby.data.incidents[0].distanceKm < nearby.data.incidents[1].distanceKm);
+  assert.equal(nearby.data.incidents.some((incident) => incident.id === airport.data.incident.id), false);
+
+  const wide = await request("/api/incidents?near=1.2140,-77.2810&radius=30", { token: admin.token });
+  assert.equal(wide.data.incidents.at(-1).id, airport.data.incident.id);
+
+  assert.equal((await request("/api/incidents?near=abc", { token: admin.token })).status, 400);
+  assert.equal((await request("/api/incidents?near=1.2,-77.2&radius=500", { token: admin.token })).status, 400);
+  assert.equal((await request("/api/incidents?radius=3", { token: admin.token })).status, 400);
+});

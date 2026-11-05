@@ -128,6 +128,15 @@ function validateIncident(body, partial = false, operator = false) {
   if ("assignedTo" in body) validate(body.assignedTo === null || typeof body.assignedTo === "string", "El responsable no es válido.");
 }
 
+function distanceKm(fromLatitude, fromLongitude, toLatitude, toLongitude) {
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+  const latitudeDelta = toRadians(toLatitude - fromLatitude);
+  const longitudeDelta = toRadians(toLongitude - fromLongitude);
+  const a = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(toRadians(fromLatitude)) * Math.cos(toRadians(toLatitude)) * Math.sin(longitudeDelta / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function sanitizeIncident(incident) {
   const { createdBy, ...publicIncident } = incident;
   return publicIncident;
@@ -345,7 +354,7 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
         const page = Number(url.searchParams.get("page") ?? 1);
         const limit = Number(url.searchParams.get("limit") ?? 20);
         validate(Number.isInteger(page) && page >= 1 && Number.isInteger(limit) && limit >= 1 && limit <= 100, "La página o el límite no son válidos.");
-        const allowedFilters = ["page", "limit", "status", "priority", "category", "q", "from", "to"];
+        const allowedFilters = ["page", "limit", "status", "priority", "category", "q", "from", "to", "near", "radius"];
         validate([...url.searchParams.keys()].every((key) => allowedFilters.includes(key)), "La búsqueda contiene filtros no reconocidos.");
         let incidents = store.incidents.filter((incident) => user.role !== "citizen" || incident.createdBy === user.id);
         for (const field of ["status", "priority", "category"]) {
@@ -378,9 +387,30 @@ export function createServer({ dataFile = process.env.DATA_FILE ?? "./data/emerg
         if (from && to) validate(from <= to, "La fecha inicial no puede ser posterior a la fecha final.");
         if (from) incidents = incidents.filter((incident) => incident.createdAt.slice(0, 10) >= from);
         if (to) incidents = incidents.filter((incident) => incident.createdAt.slice(0, 10) <= to);
-        incidents.sort((first, second) => second.createdAt.localeCompare(first.createdAt));
+        const near = url.searchParams.get("near");
+        const radiusParam = url.searchParams.get("radius");
+        validate(radiusParam === null || near !== null, "El filtro radius requiere el filtro near.");
+        let distances = null;
+        if (near !== null) {
+          const [latitude, longitude, ...rest] = near.split(",").map((value) => (value.trim() === "" ? NaN : Number(value)));
+          validate(rest.length === 0 && Number.isFinite(latitude) && latitude >= -90 && latitude <= 90
+            && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180, "El filtro near debe tener el formato latitud,longitud.");
+          const radius = radiusParam === null ? 5 : Number(radiusParam);
+          validate(Number.isFinite(radius) && radius > 0 && radius <= 100, "El radio debe ser un número de kilómetros entre 0 y 100.");
+          distances = new Map();
+          incidents = incidents.filter((incident) => {
+            if (incident.latitude === null || incident.longitude === null) return false;
+            const distance = distanceKm(latitude, longitude, incident.latitude, incident.longitude);
+            distances.set(incident.id, Math.round(distance * 100) / 100);
+            return distance <= radius;
+          });
+        }
+        if (distances) incidents.sort((first, second) => distances.get(first.id) - distances.get(second.id));
+        else incidents.sort((first, second) => second.createdAt.localeCompare(first.createdAt));
         const total = incidents.length;
-        const results = incidents.slice((page - 1) * limit, page * limit).map(sanitizeIncident);
+        const results = incidents.slice((page - 1) * limit, page * limit).map((incident) => (
+          distances ? { ...sanitizeIncident(incident), distanceKm: distances.get(incident.id) } : sanitizeIncident(incident)
+        ));
         return send(res, 200, { incidents: results, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
       }
 
