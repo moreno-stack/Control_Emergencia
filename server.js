@@ -17,6 +17,7 @@ const statusTransitions = {
 const sessions = new Map();
 const maxFailedLogins = 10;
 const failedLoginWindowMs = 15 * 60 * 1000;
+const cleanupIntervalMs = 10 * 60 * 1000;
 
 function loadEnv() {
   try {
@@ -526,6 +527,31 @@ export function createServer({
       return send(res, 500, { error: { code: "INTERNAL_ERROR", message: "Ocurrió un error interno." } });
     }
   });
+
+  server.purgeExpired = () => {
+    const now = Date.now();
+    let removedSessions = 0;
+    let removedLoginRecords = 0;
+    for (const [token, session] of sessions) {
+      if (session.expiresAt <= now) {
+        sessions.delete(token);
+        removedSessions += 1;
+      }
+    }
+    for (const [ip, failures] of failedLogins) {
+      const recentFailures = failures.filter((time) => now - time < failedLoginWindowMs);
+      if (recentFailures.length === 0) {
+        failedLogins.delete(ip);
+        removedLoginRecords += 1;
+      } else {
+        failedLogins.set(ip, recentFailures);
+      }
+    }
+    return { removedSessions, removedLoginRecords };
+  };
+  const cleanupTimer = setInterval(server.purgeExpired, cleanupIntervalMs);
+  cleanupTimer.unref();
+  server.on("close", () => clearInterval(cleanupTimer));
 
   return server;
 }

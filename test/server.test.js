@@ -374,3 +374,10 @@ test("el límite de login solo cuenta intentos fallidos y se reinicia al entrar"
     await new Promise((resolve) => limitServer.close(resolve));
   }
 });
+
+test("la limpieza periódica conserva las sesiones vigentes", async () => {
+  const admin = await loginAdmin();
+  const result = server.purgeExpired();
+  assert.equal(result.removedSessions, 0);
+  assert.equal((await request("/api/auth/me", { token: admin.token })).status, 200);
+});
