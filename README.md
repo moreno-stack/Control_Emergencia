@@ -1,61 +1,35 @@
-# Control de Emergencias — API
+# API de Control de Emergencias
 
-Backend REST para registrar y dar seguimiento a reportes de emergencia. Incluye autenticación con JWT, roles de ciudadano/operador/administrador y almacenamiento SQLite.
+Backend sencillo para registrar y gestionar reportes. Está hecho con Node.js puro: no usa Express, base de datos externa ni paquetes npm. Los datos se guardan en `data/emergency.json`.
 
-## Requisitos
+## Iniciar
 
-- Node.js 22 o superior
-- npm
-
-## Instalación y ejecución
+Requiere Node.js 18 o superior. No necesitas ejecutar `npm install`.
 
 ```powershell
-npm install
 Copy-Item .env.example .env
+npm start
 ```
 
-Configura `JWT_SECRET` en `.env` con un valor aleatorio de al menos 32 caracteres. No compartas ni subas ese archivo. Luego inicia el servidor:
+La API estará en `http://localhost:3000`. Puedes cambiar el puerto y archivo de datos en `.env`. Para habilitar una cuenta de administrador, define `ADMIN_EMAIL` y `ADMIN_PASSWORD` (mínimo 10 caracteres) antes de iniciar. El registro público siempre crea ciudadanos. Un administrador puede crear operadores mediante `POST /api/users`.
 
-```powershell
-npm run dev
-```
+## Rutas
 
-La API escucha en `http://localhost:3000` por defecto. La base de datos se crea automáticamente en `DATABASE_PATH`.
-
-Para crear un administrador, configura temporalmente las variables `ADMIN_NAME`, `ADMIN_EMAIL` y `ADMIN_PASSWORD` y ejecuta:
-
-```powershell
-npm run create-admin
-```
-
-La contraseña debe tener al menos 10 caracteres. El comando crea una cuenta administrativa y falla si el correo ya está registrado.
-
-## Autenticación
-
-Registra ciudadanos en `POST /api/auth/register` y obtén un token en `POST /api/auth/login`. Envía el token en las rutas protegidas:
-
-```http
-Authorization: Bearer <token>
-```
-
-El registro público siempre crea cuentas de ciudadano; los roles operativos se crean fuera del registro público.
-
-## Rutas principales
-
-| Método | Ruta | Acceso | Descripción |
+| Método | Ruta | Acceso | Función |
 |---|---|---|---|
-| GET | `/api/health` | Público | Estado del servicio |
-| POST | `/api/auth/register` | Público | Crear cuenta de ciudadano |
+| GET | `/api/health` | Público | Comprobar el servicio |
+| POST | `/api/auth/register` | Público | Registrar ciudadano |
 | POST | `/api/auth/login` | Público | Iniciar sesión |
-| GET | `/api/auth/me` | Autenticado | Consultar la cuenta actual |
-| POST | `/api/incidents` | Autenticado | Crear reporte |
-| GET | `/api/incidents` | Autenticado | Listar reportes (ciudadano: propios) |
-| GET | `/api/incidents/:id` | Autenticado | Consultar reporte |
-| PATCH | `/api/incidents/:id` | Autenticado | Editar reporte o gestionar su estado |
+| GET | `/api/auth/me` | Sesión | Ver la cuenta actual |
+| POST | `/api/users` | Administrador | Crear operador |
+| POST | `/api/incidents` | Sesión | Crear reporte |
+| GET | `/api/incidents` | Sesión | Listar reportes |
+| GET | `/api/incidents/:id` | Sesión | Consultar reporte |
+| PATCH | `/api/incidents/:id` | Sesión | Actualizar reporte |
 
-Los operadores y administradores pueden consultar y gestionar todos los reportes. Los ciudadanos pueden editar sus propios reportes mientras estén nuevos. No se permite borrar reportes, para preservar el historial operativo.
+El registro incluye título, categoría, descripción y dirección; la ubicación GPS y teléfono son opcionales. Los ciudadanos ven y editan únicamente sus reportes nuevos. Operadores y administradores pueden gestionar todos. Estados: `new`, `assigned`, `in_progress`, `resolved`, `cancelled`. Prioridades: `low`, `medium`, `high`, `critical`.
 
-Los estados son `new`, `assigned`, `in_progress`, `resolved` y `cancelled`; las prioridades son `low`, `medium`, `high` y `critical`.
+Envía el token devuelto al iniciar sesión con `Authorization: Bearer <token>`. Los tokens duran 8 horas y se invalidan al reiniciar el servidor.
 
 ## Pruebas
 
