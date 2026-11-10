@@ -18,6 +18,6 @@ export class UsersController {
   @Roles(Role.OPERATOR, Role.ADMIN)
   @Get()
   async getStaff() {
-    return { users: await this.usersService.findStaff() };
+    return { users: await this.usersService.findStaffWithWorkload() };
   }
 }

@@ -11,6 +11,8 @@ import * as bcrypt from 'bcryptjs';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/user.dto';
 import { Role, STAFF_ROLES } from '../common/enums/role.enum';
+import { OPEN_STATUSES } from '../common/enums/incident.enums';
+import { Incident } from '../incidents/entities/incident.entity';
 import { Env } from '../env.model';
 
 @Injectable()
@@ -20,6 +22,8 @@ export class UsersService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Incident)
+    private incidentRepository: Repository<Incident>,
     private configService: ConfigService<Env>,
   ) {}
 
@@ -81,11 +85,26 @@ export class UsersService implements OnApplicationBootstrap {
     return this.userRepository.findOneBy({ id, role: In(STAFF_ROLES) });
   }
 
-  /** Lista las cuentas del personal operativo ordenadas por nombre. */
-  findStaff() {
-    return this.userRepository.find({
+  /** Lista el personal operativo con su número de reportes abiertos asignados. */
+  async findStaffWithWorkload() {
+    const users = await this.userRepository.find({
       where: { role: In(STAFF_ROLES) },
       order: { name: 'ASC' },
     });
+    const counts = await this.incidentRepository
+      .createQueryBuilder('incident')
+      .select('incident.assigned_to', 'userId')
+      .addSelect('COUNT(*)', 'count')
+      .where('incident.status IN (:...statuses)', { statuses: OPEN_STATUSES })
+      .andWhere('incident.assigned_to IS NOT NULL')
+      .groupBy('incident.assigned_to')
+      .getRawMany<{ userId: string; count: string }>();
+    const countByUser = new Map(
+      counts.map((row) => [row.userId, Number(row.count)]),
+    );
+    return users.map((user) => ({
+      ...user,
+      activeIncidentCount: countByUser.get(user.id) ?? 0,
+    }));
   }
 }
