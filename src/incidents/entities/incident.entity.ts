@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Comment } from '../../comments/entities/comment.entity';
 import { IncidentHistory } from './incident-history.entity';
 import {
   IncidentCategory,
@@ -89,6 +90,9 @@ export class Incident {
   @ManyToOne(() => User, (user) => user.assignedIncidents, { nullable: true })
   @JoinColumn({ name: 'assigned_to' })
   assignedTo: Relation<User> | null;
+
+  @OneToMany(() => Comment, (comment) => comment.incident)
+  comments: Relation<Comment[]>;
 
   @OneToMany(() => IncidentHistory, (entry) => entry.incident)
   history: Relation<IncidentHistory[]>;
