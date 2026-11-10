@@ -2,10 +2,13 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
+  type Relation,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Role } from '../../common/enums/role.enum';
+import { Incident } from '../../incidents/entities/incident.entity';
 
 @Entity({
   name: 'users',
@@ -40,4 +43,10 @@ export class User {
     name: 'updated_at',
   })
   updatedAt: Date;
+
+  @OneToMany(() => Incident, (incident) => incident.createdBy)
+  reportedIncidents: Relation<Incident[]>;
+
+  @OneToMany(() => Incident, (incident) => incident.assignedTo)
+  assignedIncidents: Relation<Incident[]>;
 }
