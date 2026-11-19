@@ -1,8 +1,9 @@
 import { Test } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/app.setup';
 
 // Usa una base de datos aparte y la limpia en cada ejecución
 process.env.POSTGRES_DB = 'control_emergencias_test';
@@ -26,15 +27,7 @@ describe('API Control de Emergencias (e2e)', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
-    app = moduleRef.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
+    app = configureApp(moduleRef.createNestApplication());
     await app.init();
     api = () => request(app.getHttpServer());
   });
@@ -46,8 +39,15 @@ describe('API Control de Emergencias (e2e)', () => {
   it('GET /api/health es público', () =>
     api().get('/api/health').expect(200, { status: 'ok' }));
 
-  it('rechaza peticiones sin token', () =>
-    api().get('/api/incidents').expect(401));
+  it('rechaza peticiones sin token con el formato de error común', async () => {
+    const res = await api().get('/api/incidents').expect(401);
+    expect(res.body).toMatchObject({
+      statusCode: 401,
+      path: '/api/incidents',
+    });
+    expect(res.body.message).toBeDefined();
+    expect(res.body.timestamp).toBeDefined();
+  });
 
   it('registra ciudadanos sin exponer la contraseña', async () => {
     const res = await api()
