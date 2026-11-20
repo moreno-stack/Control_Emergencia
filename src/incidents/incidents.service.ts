@@ -18,6 +18,7 @@ import { UsersService } from '../users/users.service';
 import { Role } from '../common/enums/role.enum';
 import {
   canTransition,
+  CLOSED_STATUSES,
   IncidentPriority,
   IncidentStatus,
   STATUS_TRANSITIONS,
@@ -200,6 +201,15 @@ export class IncidentsService {
       throw new BadRequestException(
         'Debes enviar al menos un campo para actualizar.',
       );
+    }
+
+    // Un reporte resuelto o cancelado queda cerrado: nadie puede editarlo
+    if (CLOSED_STATUSES.includes(incident.status)) {
+      throw new ConflictException({
+        message: `El reporte está cerrado (${incident.status}) y ya no se puede editar.`,
+        error: 'INCIDENT_CLOSED',
+        status: incident.status,
+      });
     }
 
     if (!isStaff(user)) {
