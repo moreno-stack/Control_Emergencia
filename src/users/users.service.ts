@@ -65,6 +65,20 @@ export class UsersService implements OnApplicationBootstrap {
     return this.userRepository.findOneBy({ id });
   }
 
+  /** Cambia el nombre de la cuenta y devuelve el usuario actualizado. */
+  async updateName(id: string, name: string) {
+    await this.userRepository.update({ id }, { name });
+    return (await this.findById(id)) as User;
+  }
+
+  /** Guarda una nueva contraseña, siempre cifrada con bcrypt. */
+  async updatePassword(id: string, password: string) {
+    await this.userRepository.update(
+      { id },
+      { password: await bcrypt.hash(password, 10) },
+    );
+  }
+
   /** Incluye la contraseña cifrada; solo se usa para iniciar sesión. */
   findByEmailWithPassword(email: string) {
     return this.userRepository.findOne({

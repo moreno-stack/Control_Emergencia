@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -12,6 +13,7 @@ import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/user.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { User } from '../users/entities/user.entity';
 import { Role } from '../common/enums/role.enum';
 import { RevokedToken } from './entities/revoked-token.entity';
@@ -74,6 +76,30 @@ export class AuthService {
     });
     await this.purgeExpired();
     return { message: 'Sesión cerrada correctamente.' };
+  }
+
+  async updateProfile(user: User, name: string) {
+    return { user: await this.usersService.updateName(user.id, name) };
+  }
+
+  async changePassword(
+    user: User,
+    { currentPassword, newPassword }: ChangePasswordDto,
+  ) {
+    const account = await this.usersService.findByEmailWithPassword(user.email);
+    if (
+      !account ||
+      !(await bcrypt.compare(currentPassword, account.password))
+    ) {
+      throw new BadRequestException('La contraseña actual no es correcta.');
+    }
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        'La nueva contraseña debe ser diferente de la actual.',
+      );
+    }
+    await this.usersService.updatePassword(user.id, newPassword);
+    return { message: 'Contraseña actualizada correctamente.' };
   }
 
   /** Valida el token y devuelve el usuario dueño de la sesión. */
