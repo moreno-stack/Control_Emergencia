@@ -31,3 +31,11 @@ export class CreateOperatorDto extends CreateUserDto {
   })
   role: Role.OPERATOR;
 }
+
+/** Datos que un usuario puede cambiar de su propia cuenta. */
+export class UpdateProfileDto {
+  @Transform(trim)
+  @IsString()
+  @Length(2, 100, { message: 'El nombre debe tener entre 2 y 100 caracteres.' })
+  name: string;
+}

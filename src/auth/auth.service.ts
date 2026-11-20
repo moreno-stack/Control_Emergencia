@@ -1,17 +1,22 @@
 import {
+  BadRequestException,
   HttpException,
   HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/user.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { User } from '../users/entities/user.entity';
 import { Role } from '../common/enums/role.enum';
+import { RevokedToken } from './entities/revoked-token.entity';
 
 export interface JwtPayload {
   sub: string;
@@ -24,14 +29,16 @@ const FAILED_LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
-  /** Tokens cerrados con logout (id del token -> fecha de expiración). */
-  private revokedTokens = new Map<string, number>();
   /** Intentos fallidos de inicio de sesión por IP. */
   private failedLogins = new Map<string, number[]>();
 
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    // Los tokens cerrados se guardan en la base de datos para que el logout
+    // siga funcionando aunque la API se reinicie
+    @InjectRepository(RevokedToken)
+    private revokedTokenRepository: Repository<RevokedToken>,
   ) {}
 
   async register(payload: CreateUserDto) {
@@ -62,10 +69,37 @@ export class AuthService {
     return { user: publicUser, token: await this.signToken(user) };
   }
 
-  logout(payload: JwtPayload) {
-    this.revokedTokens.set(payload.jti, payload.exp * 1000);
-    this.purgeExpired();
+  async logout(payload: JwtPayload) {
+    await this.revokedTokenRepository.save({
+      jti: payload.jti,
+      expiresAt: new Date(payload.exp * 1000),
+    });
+    await this.purgeExpired();
     return { message: 'Sesión cerrada correctamente.' };
+  }
+
+  async updateProfile(user: User, name: string) {
+    return { user: await this.usersService.updateName(user.id, name) };
+  }
+
+  async changePassword(
+    user: User,
+    { currentPassword, newPassword }: ChangePasswordDto,
+  ) {
+    const account = await this.usersService.findByEmailWithPassword(user.email);
+    if (
+      !account ||
+      !(await bcrypt.compare(currentPassword, account.password))
+    ) {
+      throw new BadRequestException('La contraseña actual no es correcta.');
+    }
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        'La nueva contraseña debe ser diferente de la actual.',
+      );
+    }
+    await this.usersService.updatePassword(user.id, newPassword);
+    return { message: 'Contraseña actualizada correctamente.' };
   }
 
   /** Valida el token y devuelve el usuario dueño de la sesión. */
@@ -78,7 +112,7 @@ export class AuthService {
         'Debes iniciar sesión para acceder a este recurso.',
       );
     }
-    if (this.revokedTokens.has(payload.jti)) {
+    if (await this.revokedTokenRepository.existsBy({ jti: payload.jti })) {
       throw new UnauthorizedException('La sesión fue cerrada.');
     }
     const user = await this.usersService.findById(payload.sub);
@@ -94,11 +128,12 @@ export class AuthService {
     return this.jwtService.signAsync({ sub: user.id, jti: randomUUID() });
   }
 
-  private purgeExpired() {
+  /** Borra los tokens ya vencidos y los intentos fallidos antiguos. */
+  private async purgeExpired() {
     const now = Date.now();
-    for (const [jti, expiresAt] of this.revokedTokens) {
-      if (expiresAt <= now) this.revokedTokens.delete(jti);
-    }
+    await this.revokedTokenRepository.delete({
+      expiresAt: LessThan(new Date(now)),
+    });
     for (const [ip, failures] of this.failedLogins) {
       if (failures.every((time) => now - time >= FAILED_LOGIN_WINDOW_MS)) {
         this.failedLogins.delete(ip);

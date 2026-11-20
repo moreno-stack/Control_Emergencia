@@ -1,7 +1,17 @@
-import { Body, Controller, Get, HttpCode, Ip, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Ip,
+  Patch,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { AuthService, JwtPayload } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { CreateUserDto } from '../users/dto/user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { CreateUserDto, UpdateProfileDto } from '../users/dto/user.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
@@ -26,6 +36,19 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: User) {
     return { user };
+  }
+
+  @Patch('me')
+  updateProfile(@CurrentUser() user: User, @Body() payload: UpdateProfileDto) {
+    return this.authService.updateProfile(user, payload.name);
+  }
+
+  @Patch('password')
+  changePassword(
+    @CurrentUser() user: User,
+    @Body() payload: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user, payload);
   }
 
   @HttpCode(200)
