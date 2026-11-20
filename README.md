@@ -1,90 +1,141 @@
-# API de Control de Emergencias
+<div align="center">
 
-API REST para registrar y gestionar reportes de emergencias (incendios, accidentes, emergencias médicas, etc.). Los ciudadanos reportan, el personal operativo asigna responsables y prioridades, y todos pueden seguir el historial y los comentarios de cada reporte.
+<img src="./logo/logo.svg" alt="Logo Control de Emergencias" width="200" />
 
-Construida con **NestJS 12**, **TypeORM** y **PostgreSQL** como trabajo final de la Electiva I.
+# 🚨 Control de Emergencias API
 
-**Integrantes:** Leider Cadena, Samuel Moreno y Miguel Pantoja.
+**API REST para reportar y gestionar emergencias**
 
-## Tecnologías
+![NestJS](https://img.shields.io/badge/NestJS-12-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![JWT](https://img.shields.io/badge/Auth-JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 
-| Herramienta | Uso |
+</div>
+
+---
+
+## 📖 Descripción
+
+API desarrollada con **NestJS**, **TypeORM** y **PostgreSQL** como trabajo final de la Electiva I. Los ciudadanos reportan emergencias (incendios, accidentes, emergencias médicas, etc.) y el personal operativo las asigna, les pone prioridad y las sigue hasta resolverlas:
+
+- 👤 **Users y Auth** – registro de ciudadanos, inicio de sesión con JWT, roles (`citizen`, `operator`, `admin`), cierre de sesión y guards que protegen todas las rutas.
+- 🚨 **Incidents** – reportes de emergencia con categoría, prioridad, ubicación y estado. Filtros por texto, fechas y cercanía, transiciones de estado controladas e historial de cambios.
+- 💬 **Comments** – comentarios en cada reporte, visibles solo para quien puede ver el reporte.
+- 📊 **Dashboard** – conteos por estado y prioridad para el personal operativo.
+
+Incluye validación de datos con DTOs, respuestas de error uniformes, pruebas unitarias y e2e, y una colección de Postman con el flujo completo.
+
+## 👥 Integrantes
+
+| Integrante | Módulo |
 |---|---|
-| NestJS 12 | Framework (módulos, controladores, servicios, inyección de dependencias) |
-| TypeORM + PostgreSQL 15 | Persistencia con entidades y relaciones |
-| class-validator / class-transformer | DTO y validación de los datos recibidos |
-| @nestjs/config | Variables de entorno (`.env`) |
-| @nestjs/jwt + bcryptjs | Autenticación con JWT y contraseñas cifradas |
-| Jest + Supertest | Pruebas unitarias y de punta a punta (e2e) |
-| oxlint + Prettier | Revisión y formato del código |
-| Docker Compose | Base de datos PostgreSQL y pgAdmin |
+| Leider Cadena | Base del proyecto, configuración, manejo de errores y documentación |
+| Samuel Moreno | Usuarios y autenticación |
+| Miguel Pantoja | Reportes, comentarios, dashboard y pruebas |
 
-## Requisitos
+## ✅ Requisitos
 
-- Node.js 22.12 o superior y npm
-- Docker Desktop (para PostgreSQL). También sirve un PostgreSQL instalado localmente.
-- Postman o Insomnia para probar la API
+| Herramienta | Versión |
+|-------------|---------|
+| [Node.js](https://nodejs.org/) | 22.12 o superior |
+| [npm](https://www.npmjs.com/) | Incluido con Node.js |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Para levantar PostgreSQL |
+| [Postman](https://www.postman.com/) | Para probar la API |
 
-## Configuración de la base de datos
+## 🗄️ Configuración de la base de datos
 
-La base de datos corre en Docker con `docker-compose.yml`:
+La base de datos corre en Docker, no necesitas instalar PostgreSQL.
+
+**1. Crea el archivo `.env`** a partir del ejemplo:
 
 ```bash
-docker compose up -d postgres   # PostgreSQL en localhost:5434
-docker compose up -d            # PostgreSQL + pgAdmin (http://localhost:5050)
+cp .env.example .env            # En PowerShell: Copy-Item .env.example .env
 ```
 
-| Dato | Valor |
-|---|---|
-| Host | `localhost` |
-| Puerto | `5434` (se publica en 5434 para no chocar con otro PostgreSQL en 5432) |
-| Base de datos | `control_emergencias_db` |
-| Usuario / contraseña | `emergencias_user` / `emergencias_password` |
-| Base de pruebas e2e | `control_emergencias_test` (la crea `docker/init.sql` la primera vez) |
+**2. Revisa los valores** (coinciden con `docker-compose.yml`):
 
-Para conectarse desde pgAdmin (`admin@emergencias.com` / `admin_password`), registra un servidor con host `postgres`, puerto `5432` y el usuario de arriba.
+```env
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5434
+POSTGRES_DB=control_emergencias_db
+POSTGRES_USER=emergencias_user
+POSTGRES_PASSWORD=emergencias_password
 
-Las tablas se crean solas: TypeORM está configurado con `autoLoadEntities: true` y `synchronize: true` (solo para desarrollo).
+JWT_SECRET=cambia-este-secreto-por-uno-largo
+JWT_EXPIRES_IN=8h
 
-### Variables de entorno
+ADMIN_NAME=Administrador
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin-password-123
+```
 
-Copia `.env.example` a `.env` (en PowerShell: `Copy-Item .env.example .env`).
-
-| Variable | Descripción |
-|---|---|
-| `PORT` | Puerto de la API (por defecto 3000) |
-| `CORS_ORIGINS` | Orígenes permitidos, separados por coma |
-| `TIMEZONE` | Zona horaria para filtros por fecha (`America/Bogota`) |
-| `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Conexión a PostgreSQL |
-| `JWT_SECRET`, `JWT_EXPIRES_IN` | Secreto y duración del token |
-| `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Cuenta de administrador que se crea al iniciar (contraseña de 10 caracteres o más) |
-
-## Ejecución
+**3. Levanta PostgreSQL y pgAdmin:**
 
 ```bash
+docker compose up -d
+```
+
+| Servicio | URL / Puerto |
+|----------|--------------|
+| 🐘 PostgreSQL | `localhost:5434` (se publica en 5434 para no chocar con otro PostgreSQL en 5432) |
+| 🧪 Base de pruebas e2e | `control_emergencias_test` (la crea `docker/init.sql` la primera vez) |
+| 🛠️ pgAdmin (opcional) | http://localhost:5050 — `admin@emergencias.com` / `admin_password` |
+
+> Las tablas se crean solas al iniciar la API (`synchronize: true`), no hay que ejecutar migraciones. Al arrancar, la API crea la cuenta de administrador definida en el `.env`.
+
+## 🚀 Ejecutar el proyecto
+
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/moreno-stack/Control_Emergencia.git
+cd Control_Emergencia
+
+# 2. Instalar dependencias
 npm install
-cp .env.example .env
-docker compose up -d postgres
+
+# 3. Iniciar en modo desarrollo
 npm run start:dev
 ```
 
-La API queda en `http://localhost:3000/api`. Comprueba con `GET http://localhost:3000/api/health`.
+La API queda disponible en **http://localhost:3000/api** 🎉 Compruébalo con `GET http://localhost:3000/api/health`.
 
-Otros comandos:
+| Comando | Descripción |
+|---------|-------------|
+| `npm run start:dev` | Desarrollo con recarga automática |
+| `npm run build` y `npm run start:prod` | Compilar y ejecutar en producción |
+| `npm test` | Pruebas unitarias |
+| `npm run test:e2e` | Pruebas de punta a punta (requiere PostgreSQL) |
+| `npm run lint` | Revisión del código con oxlint |
+| `npm run format` | Formato con Prettier |
 
-```bash
-npm run build && npm run start:prod   # Producción
-npm test                              # Pruebas unitarias
-npm run test:e2e                      # Pruebas e2e (requiere PostgreSQL)
-npm run lint                          # oxlint
-npm run format                        # Prettier
-```
+> **¿Error `password authentication failed`?** Otro PostgreSQL ocupa el puerto. Cambia `5434` en `docker-compose.yml` y `POSTGRES_PORT` en `.env` por un puerto libre y vuelve a ejecutar `docker compose up -d`.
 
-## Probar con Postman
+---
 
-Importa `postman/control-emergencia.postman_collection.json`. Ejecuta las peticiones en orden: los logins guardan los tokens (`citizenToken`, `operatorToken`, `adminToken`) y las creaciones guardan los ids (`operatorId`, `incidentId`) en las variables de la colección.
+## 📮 Colección de Postman (pruebas del flujo completo)
 
-## Arquitectura
+Se incluye la colección de Postman en formato JSON v2.1 con todas las rutas de la API:
+
+- **Ruta de la colección**: `postman/control-emergencia.postman_collection.json`.
+
+### Pasos para importar y ejecutar en Postman:
+1. Abre **Postman**.
+2. Haz clic en **Import** y selecciona el archivo `postman/control-emergencia.postman_collection.json`.
+3. La variable de colección `baseUrl` viene preconfigurada en `http://localhost:3000/api`.
+4. Ejecuta las peticiones en orden, o usa el **Collection Runner** para correr todo el flujo. Los logins guardan los tokens (`citizenToken`, `operatorToken`, `adminToken`) y las creaciones guardan los ids (`operatorId`, `incidentId`):
+   - **0. Salud**: comprobar que la API responde.
+   - **1. Autenticación**: registro de ciudadano, login de ciudadano y administrador, y consulta de la cuenta.
+   - **2. Usuarios**: el administrador crea un operador y se lista el personal con su carga de trabajo.
+   - **3. Reportes (Incidents)**: crear, listar con filtros, asignar operador y prioridad, cambiar el estado y ver el historial.
+   - **4. Comentarios**: comentar un reporte y ver sus comentarios.
+   - **5. Dashboard**: resumen de reportes para el personal operativo.
+   - **6. Cierre de sesión**: logout y verificación de que el token ya no sirve.
+
+---
+
+## 🏗️ Arquitectura
 
 Cada funcionalidad es un **módulo** de NestJS con su **controlador** (recibe la petición HTTP), su **servicio** (lógica de negocio, inyectado por constructor) y sus **entidades** y **DTO**.
 
@@ -106,7 +157,7 @@ src/
 └── dashboard/              # Resumen para el personal operativo
 ```
 
-### Entidades y relaciones
+### 🔗 Entidades y relaciones
 
 ```
 User 1 ──── N Incident
@@ -121,7 +172,7 @@ User 1 ──── N Incident
 | `User` → `Incident` (creador y responsable) | OneToMany / ManyToOne | `incidents/entities/incident.entity.ts` |
 | `Incident` → `Comment`, `IncidentHistory` | OneToMany / ManyToOne (`onDelete: CASCADE`) | `comments`, `incidents` |
 
-## Rutas
+## 🛣️ Rutas
 
 Todas las rutas usan el prefijo `/api` y piden `Authorization: Bearer <token>`, excepto las públicas.
 
@@ -131,6 +182,8 @@ Todas las rutas usan el prefijo `/api` y piden `Authorization: Bearer <token>`, 
 | POST | `/auth/register` | Público | Registrar ciudadano |
 | POST | `/auth/login` | Público | Iniciar sesión |
 | GET | `/auth/me` | Sesión | Ver la cuenta actual |
+| PATCH | `/auth/me` | Sesión | Cambiar el nombre de la cuenta |
+| PATCH | `/auth/password` | Sesión | Cambiar la contraseña (pide la actual) |
 | POST | `/auth/logout` | Sesión | Cerrar la sesión |
 | POST | `/users` | Admin | Crear operador |
 | GET | `/users` | Operador/admin | Listar equipo y carga activa |
@@ -143,12 +196,13 @@ Todas las rutas usan el prefijo `/api` y piden `Authorization: Bearer <token>`, 
 | POST | `/incidents/:id/comments` | Sesión | Comentar |
 | GET | `/dashboard/summary` | Operador/admin | Conteos de reportes |
 
-### Reglas de negocio
+### 📋 Reglas de negocio
 
 - Roles: `citizen` (se registra solo), `operator` (lo crea el admin) y `admin` (se crea desde `.env`).
 - Los ciudadanos ven y editan solo sus reportes mientras están en `new`, y solo pueden cancelarlos. La prioridad y el responsable los define el personal operativo.
 - Asignar un responsable a un reporte nuevo lo pasa a `assigned`; quitarlo lo devuelve a `new`.
 - Tras 10 intentos fallidos de login desde una IP en 15 minutos, el login se bloquea temporalmente.
+- Un token cerrado con logout queda guardado en la base de datos y no vuelve a servir, aunque la API se reinicie.
 
 ```
 new ──► assigned ──► in_progress ──► resolved
@@ -156,7 +210,7 @@ new ──► assigned ──► in_progress ──► resolved
  └─────────┴──────────────┴──────► cancelled
 ```
 
-### Filtros de `GET /incidents`
+### 🔎 Filtros de `GET /incidents`
 
 | Parámetro | Ejemplo | Descripción |
 |---|---|---|
@@ -166,7 +220,7 @@ new ──► assigned ──► in_progress ──► resolved
 | `near`, `radius` | `?near=1.2142,-77.2811&radius=3` | Reportes a menos de `radius` km, ordenados por cercanía |
 | `page`, `limit` | `?page=2&limit=20` | Paginación (`limit` máximo 100) |
 
-### Respuestas de error
+### ⚠️ Respuestas de error
 
 Todos los errores tienen el mismo formato gracias al filtro global `HttpExceptionFilter`:
 
@@ -189,7 +243,9 @@ Todos los errores tienen el mismo formato gracias al filtro global `HttpExceptio
 | 409 | Correo repetido o transición de estado no permitida |
 | 429 | Demasiados intentos de login |
 
-## Trabajo colaborativo (Git y GitHub)
+---
+
+## 🌿 Trabajo colaborativo (Git y GitHub)
 
 - `main` contiene siempre una versión que funciona.
 - Cada funcionalidad se desarrolla en su propia rama (`feature/...`, `docs/...`, `test/...`) y se integra con un **Pull Request** revisado por otro integrante.
@@ -199,3 +255,39 @@ Todos los errores tienen el mismo formato gracias al filtro global `HttpExceptio
 |---|---|---|
 | `feature/migracion-nestjs` | Todo el equipo | Migración a NestJS, autenticación, reportes |
 | `feature/documentacion-y-errores` | Leider Cadena | Filtro de errores, lint, README y Postman |
+| `feature/mejoras-autenticacion` | Samuel Moreno | Logout persistente, perfil, contraseña y pruebas de autenticación |
+| `feature/bloquear-edicion-cerrados`, `feature/pruebas-reportes`, `feature/pruebas-e2e-reportes`, `feature/diagrama-casos-uso` | Miguel Pantoja | Reportes cerrados, pruebas de reportes y diagrama de casos de uso |
+
+---
+
+## 🎬 Video presentaciones de cada integrante
+
+<!-- Cada integrante reemplaza su PEGAR_LINK_DRIVE_AQUI por el enlace de su video en Google Drive
+     (Compartir → "Cualquier persona con el enlace" → Lector) y lo sube en su propia rama con un Pull Request. -->
+
+<div align="center">
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <h3>🎥</h3>
+      <b>Leider<br>Cadena</b><br>
+      <sub>Base del proyecto y documentación</sub><br><br>
+      <a href="PEGAR_LINK_DRIVE_AQUI"><img src="https://img.shields.io/badge/Google%20Drive-Ver%20video-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" alt="Ver video en Google Drive" /></a>
+    </td>
+    <td align="center" width="33%">
+      <h3>🎥</h3>
+      <b>Samuel<br>Moreno</b><br>
+      <sub>Usuarios y autenticación</sub><br><br>
+      <a href="PEGAR_LINK_DRIVE_AQUI"><img src="https://img.shields.io/badge/Google%20Drive-Ver%20video-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" alt="Ver video en Google Drive" /></a>
+    </td>
+    <td align="center" width="33%">
+      <h3>🎥</h3>
+      <b>Miguel<br>Pantoja</b><br>
+      <sub>Reportes, comentarios y pruebas</sub><br><br>
+      <a href="PEGAR_LINK_DRIVE_AQUI"><img src="https://img.shields.io/badge/Google%20Drive-Ver%20video-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" alt="Ver video en Google Drive" /></a>
+    </td>
+  </tr>
+</table>
+
+</div>
