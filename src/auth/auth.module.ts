@@ -2,16 +2,19 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { RevokedToken } from './entities/revoked-token.entity';
 import { UsersModule } from '../users/users.module';
 import { Env } from '../env.model';
 
 @Module({
   imports: [
     UsersModule,
+    TypeOrmModule.forFeature([RevokedToken]),
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService<Env>) => ({
         secret: configService.getOrThrow('JWT_SECRET'),
