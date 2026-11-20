@@ -1,0 +1,76 @@
+@startuml casos-de-uso
+' Diagrama de casos de uso - API Control de Emergencias
+' Imagen generada a mano en casos-de-uso.svg (mantener ambos archivos iguales).
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle default
+skinparam usecase {
+  BackgroundColor #EEF4FB
+  BorderColor #2F5D8A
+}
+
+actor "Ciudadano" as Ciudadano
+actor "Usuario autenticado" as Usuario
+actor "Operador" as Operador
+actor "Administrador" as Admin
+
+Ciudadano --|> Usuario
+Operador --|> Usuario
+Admin --|> Operador
+
+rectangle "Sistema Control de Emergencias" {
+  ' Solo ciudadano
+  usecase "Registrarse" as UC_Registro
+  usecase "Editar mi reporte nuevo" as UC_Editar
+  usecase "Cancelar mi reporte" as UC_Cancelar
+
+  ' Todo usuario autenticado
+  usecase "Iniciar sesión" as UC_Login
+  usecase "Cerrar sesión" as UC_Logout
+  usecase "Ver mi perfil" as UC_Perfil
+  usecase "Consultar reportes" as UC_Consultar
+  usecase "Ver detalle e historial" as UC_Detalle
+  usecase "Comentar reporte" as UC_Comentar
+  usecase "Crear reporte" as UC_Crear
+
+  ' Personal operativo
+  usecase "Gestionar reporte" as UC_Gestionar
+  usecase "Ver resumen (dashboard)" as UC_Dashboard
+  usecase "Consultar personal y carga" as UC_Personal
+
+  ' Administrador
+  usecase "Crear cuenta de operador" as UC_CrearOperador
+
+  ' Casos incluidos y extensiones
+  usecase "Bloquear tras 10 intentos fallidos" as UC_Bloqueo
+  usecase "Filtrar y buscar por cercanía" as UC_Filtrar
+  usecase "Registrar en historial" as UC_Historial
+  usecase "Asignar responsable" as UC_Asignar
+  usecase "Cambiar estado y prioridad" as UC_Estado
+}
+
+Ciudadano --> UC_Registro
+Ciudadano --> UC_Editar
+Ciudadano --> UC_Cancelar
+
+Usuario --> UC_Login
+Usuario --> UC_Logout
+Usuario --> UC_Perfil
+Usuario --> UC_Consultar
+Usuario --> UC_Detalle
+Usuario --> UC_Comentar
+Usuario --> UC_Crear
+
+Operador --> UC_Gestionar
+Operador --> UC_Dashboard
+Operador --> UC_Personal
+
+Admin --> UC_CrearOperador
+
+UC_Bloqueo .> UC_Login : <<extend>>
+UC_Filtrar .> UC_Consultar : <<extend>>
+UC_Crear .> UC_Historial : <<include>>
+UC_Gestionar .> UC_Historial : <<include>>
+UC_Asignar .> UC_Gestionar : <<extend>>
+UC_Estado .> UC_Gestionar : <<extend>>
+@enduml
