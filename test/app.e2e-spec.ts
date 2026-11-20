@@ -282,6 +282,67 @@ describe('API Control de Emergencias (e2e)', () => {
     expect(olga.activeIncidentCount).toBe(1);
   });
 
+  it('no permite editar reportes resueltos ni cancelados', async () => {
+    const created = await api()
+      .post('/api/incidents')
+      .auth(operatorToken, { type: 'bearer' })
+      .send({
+        title: 'Choque en la avenida',
+        category: 'traffic',
+        description: 'Dos vehículos chocaron en el cruce principal.',
+        address: 'Avenida Panamericana # 10-20, Pasto',
+      })
+      .expect(201);
+    const resolvedId = created.body.incident.id;
+    for (const status of ['in_progress', 'resolved']) {
+      await api()
+        .patch(`/api/incidents/${resolvedId}`)
+        .auth(operatorToken, { type: 'bearer' })
+        .send({ status })
+        .expect(200);
+    }
+    const closed = await api()
+      .patch(`/api/incidents/${resolvedId}`)
+      .auth(operatorToken, { type: 'bearer' })
+      .send({ title: 'Título cambiado' })
+      .expect(409);
+    expect(closed.body.error).toBe('INCIDENT_CLOSED');
+    await api()
+      .patch(`/api/incidents/${resolvedId}`)
+      .auth(adminToken, { type: 'bearer' })
+      .send({ priority: 'low' })
+      .expect(409);
+
+    // El ciudadano cancela su reporte y después nadie puede editarlo
+    const own = await api()
+      .post('/api/incidents')
+      .auth(citizenToken, { type: 'bearer' })
+      .send({
+        title: 'Poste caído',
+        category: 'other',
+        description: 'Un poste de luz cayó sobre la acera.',
+        address: 'Carrera 27 # 15-40, Pasto',
+      })
+      .expect(201);
+    const cancelledId = own.body.incident.id;
+    await api()
+      .patch(`/api/incidents/${cancelledId}`)
+      .auth(citizenToken, { type: 'bearer' })
+      .send({ status: 'cancelled' })
+      .expect(200);
+    await api()
+      .patch(`/api/incidents/${cancelledId}`)
+      .auth(operatorToken, { type: 'bearer' })
+      .send({ title: 'Reabrir con otro título' })
+      .expect(409);
+
+    const detail = await api()
+      .get(`/api/incidents/${resolvedId}`)
+      .auth(operatorToken, { type: 'bearer' })
+      .expect(200);
+    expect(detail.body.incident.title).toBe('Choque en la avenida');
+  });
+
   it('el logout invalida el token', async () => {
     await api()
       .post('/api/auth/logout')

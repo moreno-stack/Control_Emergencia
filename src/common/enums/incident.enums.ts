@@ -28,6 +28,12 @@ export const OPEN_STATUSES = [
   IncidentStatus.IN_PROGRESS,
 ];
 
+/** Estados finales: un reporte en estos estados ya no se puede editar. */
+export const CLOSED_STATUSES = [
+  IncidentStatus.RESOLVED,
+  IncidentStatus.CANCELLED,
+];
+
 /** Estados a los que puede pasar un reporte desde su estado actual. */
 export const STATUS_TRANSITIONS: Record<IncidentStatus, IncidentStatus[]> = {
   [IncidentStatus.NEW]: [
