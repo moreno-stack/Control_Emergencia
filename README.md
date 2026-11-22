@@ -285,7 +285,7 @@ Todos los errores tienen el mismo formato gracias al filtro global `HttpExceptio
       <h3>🎥</h3>
       <b>Miguel<br>Pantoja</b><br>
       <sub>Reportes, comentarios y pruebas</sub><br><br>
-      <a href="PEGAR_LINK_DRIVE_AQUI"><img src="https://img.shields.io/badge/Google%20Drive-Ver%20video-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" alt="Ver video en Google Drive" /></a>
+      <a href="https://drive.google.com/file/d/1IYYzGXDw7K02prggktS5I5WMvHdwgXf5/view?usp=sharing"><img src="https://img.shields.io/badge/Google%20Drive-Ver%20video-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" alt="Ver video en Google Drive" /></a>
     </td>
   </tr>
 </table>
