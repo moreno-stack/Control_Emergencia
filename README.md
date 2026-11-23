@@ -273,7 +273,7 @@ Todos los errores tienen el mismo formato gracias al filtro global `HttpExceptio
       <h3>🎥</h3>
       <b>Leider<br>Cadena</b><br>
       <sub>Base del proyecto y documentación</sub><br><br>
-      <a href="PEGAR_LINK_DRIVE_AQUI"><img src="https://img.shields.io/badge/Google%20Drive-Ver%20video-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" alt="Ver video en Google Drive" /></a>
+      <a href="https://drive.google.com/file/d/1wogOtgt8EC5C1bCWMocapuStGEj_BX-3/view?usp=sharing"><img src="https://img.shields.io/badge/Google%20Drive-Ver%20video-4285F4?style=for-the-badge&logo=googledrive&logoColor=white" alt="Ver video en Google Drive" /></a>
     </td>
     <td align="center" width="33%">
       <h3>🎥</h3>
